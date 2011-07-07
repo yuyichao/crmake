@@ -54,8 +54,10 @@ class Makefile:
         self.CXX = 'g++'
         self.LD = 'g++'
         self.AR = 'ar'
+        self.RM = 'rm -v'
+        self.RMDIR = 'rmdir -v'
         self.INSTALL = 'install'
-        self.SYMLINK = 'ln -s'
+        self.SYMLINK = 'ln -sv'
         self.MKDIRS = 'mkdir -p'
         self.CFLAGS = '-fPIC'
         self.CXXFLAGS = '-fPIC'
@@ -100,6 +102,7 @@ class Makefile:
         self.setdefault('CXX', 'g++')
         self.setdefault('LD', 'g++')
         self.setdefault('AR', 'ar')
+        self.setdefault('RM', 'rm -v')
         self.setdefault('MKDIRS', 'mkdir -p')
         self.setdefault('INSTALL', 'install')
         self.setdefault('SYMLINK', 'ln -s')
@@ -134,6 +137,8 @@ class Makefile:
         self.apply_state = 1
 
     def write(self):
+        self.targets = set()
+        self.ndirs = set()
         pid = os.fork()
         if pid == -1:
             exit(-1)
@@ -146,34 +151,90 @@ class Makefile:
         f.flush()
         if self.type == 'pro':
             self.write_pro(f)
+        self.write_ndirs(f)
+        self.write_clean(f)
         f.close()
         exit(0)
 
+    def write_clean(self, f):
+        f.write('.PHONY: clean cleandir\n')
+        f.write('clean:\n')
+        f.write('\t@echo cleaning...\n')
+        f.write('\t@$(RM)')
+        for target in self.targets:
+            f.write(' ' + target)
+        f.write(' 2> /dev/null || true\n')
+        f.write('\t@make cleandir\n')
+        f.write('cleandir:\n')
+        f.write('\t@echo cleaning dirs...\n')
+        f.write('\t@find -depth -type d -a ! -name ".*" -a ! -regex ".*/\\..*" -a -exec $(RMDIR) {} \\; 2> /dev/null || true\n')
+        f.flush()
+
     def write_vars(self, f):
-        for key in ['CC', 'CXX', 'LD', 'AR', 'SHAREDFLAGS', 'MKDIRS', 'INSTALL', 'SYMLINK', 'CFLAGS', 'CXXFLAGS', 'LDFLAGS', 'DBGFLAGS', 'OPTFLAGS', 'DEST', 'PREFIX', 'BINDIR', 'LIBDIR', 'name', 'target', 'srcdir', 'tgtdir', 'objdir', 'modules']:
-            f.write(key + ' = ' + getattr(self, key) + '\n')
+        for key in ['CC', 'CXX', 'LD', 'AR', 'RM', 'RMDIR', 'SHAREDFLAGS', 'MKDIRS', 'INSTALL', 'SYMLINK', 'CFLAGS', 'CXXFLAGS', 'LDFLAGS', 'DBGFLAGS', 'OPTFLAGS', 'DEST', 'PREFIX', 'BINDIR', 'LIBDIR', 'name', 'target', 'srcdir', 'tgtdir', 'objdir', 'modules', 'OBJECTS', 'DBGOBJECTS']:
+            if hasattr(self, key):
+                f.write(key + ' = ' + getattr(self, key) + '\n')
         f.flush()
 
     def write_pro(self, f):
         self.include_list()
         self.o_list()
+        if self.debug:
+            self.dbg_o_list()
         self.write_vars(f)
-        f.write('all: $(tgtdir)/$(target) $(tgtdir)\n')
+        f.write('all: $(tgtdir)/$(target)\n')
         f.write('.PHONY: all\n')
         f.flush()
-        self.write_ndirs(f)
-        f.write('$(tgtdir)/$(target):')
-        for i in range(0, len(self.oList)):
-            f.write(' ' + self.oList[i][0])
-        f.write('\n')
+        f.write('$(tgtdir)/$(target): $(OBJECTS) | $(tgtdir)\n')
+        self.targets.add('$(tgtdir)/$(target)')
         f.write('ifdef modules\n')
-        f.write('\t$(LD) $$(pkg-config --libs $(modules)) $(LDFLAGS) $^ -o $@\n')
+        f.write('\t$(LD) $$(pkg-config --libs $(modules)) $(OPTFLAGS) $(LDFLAGS) $(OBJECTS) -o $@\n')
         f.write('else\n')
-        f.write('\t$(LD) $(LDFLAGS) $^ -o $@\n')
+        f.write('\t$(LD) $(OPTFLAGS) $(LDFLAGS) $(OBJECTS) -o $@\n')
+        f.write('endif\n')
+
+        f.flush()
+        self.write_os(f)
+        if self.debug:
+            self.write_dbg(f)
+
+    def write_dbg(self, f):
+        f.write('debug: $(tgtdir)/$(target)_debug\n')
+        f.write('.PHONY: debug\n')
+        f.write('$(tgtdir)/$(target)_debug: $(DBGOBJECTS) | $(tgtdir)\n')
+        self.targets.add('$(tgtdir)/$(target)_debug')
+        f.write('ifdef modules\n')
+        f.write('\t$(LD) $$(pkg-config --libs $(modules)) $(DBGFLAGS) $(LDFLAGS) $(DBGOBJECTS) -o $@\n')
+        f.write('else\n')
+        f.write('\t$(LD) $(DBGFLAGS) $(LDFLAGS) $(DBGOBJECTS) -o $@\n')
         f.write('endif\n')
         
         f.flush()
-        self.write_os(f)
+        self.write_dbgos(f)
+        self.write_run(f)
+
+    def write_run(self, f):
+        f.write('.PHONY: run rdbg\n')
+        f.write('run: $(tgtdir)/$(target)_debug\n')
+        f.write('\t$(tgtdir)/$(target)_debug\n')
+        f.write('rdbg: $(tgtdir)/$(target)_debug\n')
+        f.write('\tgdb $(tgtdir)/$(target)_debug\n')
+        f.flush()
+
+    def write_dbgos(self, f):
+        for o in self.dbgoList:
+            f.write('%s: %s\n' % (o[0], o[1]))
+            if o[2] == 'CC':
+                flags = 'CFLAGS'
+            else:
+                flags = o[2] + 'FLAGS'
+            f.write('ifdef modules\n')
+            f.write('\t$(%s) $$(pkg-config --cflags $(modules)) $(DBGFLAGS) $(%s) -c $< -o $@\n' % (o[2], flags))
+            f.write('else\n')
+            f.write('\t$(%s) $(DBGFLAGS) $(%s) -c $< -o $@\n' % (o[2], flags))
+            f.write('endif\n')
+        self.targets.add('$(DBGOBJECTS)')
+        f.flush()
 
     def write_os(self, f):
         for o in self.oList:
@@ -183,10 +244,12 @@ class Makefile:
             else:
                 flags = o[2] + 'FLAGS'
             f.write('ifdef modules\n')
-            f.write('\t$(%s) $$(pkg-config --cflags $(modules)) $(%s) -c $< -o $@\n' % (o[2], flags))
+            f.write('\t$(%s) $$(pkg-config --cflags $(modules)) $(OPTFLAGS) $(%s) -c $< -o $@\n' % (o[2], flags))
             f.write('else\n')
-            f.write('\t$(%s) $(%s) -c $< -o $@\n' % (o[2], flags))
+            f.write('\t$(%s) $(OPTFLAGS) $(%s) -c $< -o $@\n' % (o[2], flags))
             f.write('endif\n')
+        self.targets.add('$(OBJECTS)')
+        f.flush()
 
     def write_ndirs(self, f):
         for ndir in self.ndirs | {'$(tgtdir)', '$(objdir)'}:
@@ -202,10 +265,10 @@ class Makefile:
             self.CXXFLAGS += ' -I' + I
 
     def o_list(self):
+        self.OBJECTS = ''
         c2o = re.compile('\\.c$|\\.cpp$')
         drt = re.compile('\\\\\n|\n$', re.S)
         self.oList = []
-        self.ndirs = set()
         for c in self.cList:
             [ret, out, err] = cli.asystemcli('gcc -MM ' + c + ' ' + self.CFLAGS)
             if err:
@@ -215,8 +278,9 @@ class Makefile:
             o[0] = '$(objdir)' + '/' + c2o.sub('.o', c)
             ndir = os.path.dirname(o[0])
             self.ndirs.add(ndir)
-            o[1] = drt.sub('', o[1]) + ' ' + ndir
+            o[1] = drt.sub('', o[1]) + ' | ' + ndir
             self.oList.append(o)
+            self.OBJECTS += ' ' + o[0]
         for cxx in self.cxxList:
             [ret, out, err] = cli.asystemcli('gcc -MM ' + c + ' ' + self.CXXFLAGS)
             if err:
@@ -226,8 +290,39 @@ class Makefile:
             o[0] = '$(objdir)' + '/' + c2o.sub('.o', cxx)
             ndir = os.path.dirname(o[0])
             self.ndirs.add(ndir)
-            o[1] += ' ' + ndir
+            o[1] = drt.sub('', o[1]) + ' | ' + ndir
             self.oList.append(o)
+            self.OBJECTS += ' ' + o[0]
+
+    def dbg_o_list(self):
+        self.DBGOBJECTS = ''
+        c2o = re.compile('\\.c$|\\.cpp$')
+        drt = re.compile('\\\\\n|\n$', re.S)
+        self.dbgoList = []
+        for c in self.cList:
+            [ret, out, err] = cli.asystemcli('gcc -MM ' + c + ' ' + self.CFLAGS)
+            if err:
+                print(err)
+                exit(ret)
+            o = out.split(':', 1) + ['CC']
+            o[0] = '$(objdir)' + '/' + c2o.sub('_debug.o', c)
+            ndir = os.path.dirname(o[0])
+            self.ndirs.add(ndir)
+            o[1] = drt.sub('', o[1]) + ' | ' + ndir
+            self.dbgoList.append(o)
+            self.DBGOBJECTS += ' ' + o[0]
+        for cxx in self.cxxList:
+            [ret, out, err] = cli.asystemcli('gcc -MM ' + c + ' ' + self.CXXFLAGS)
+            if err:
+                print(err)
+                exit(ret)
+            o = out.split(':', 1) + ['CXX']
+            o[0] = '$(objdir)' + '/' + c2o.sub('_debug.o', cxx)
+            ndir = os.path.dirname(o[0])
+            self.ndirs.add(ndir)
+            o[1] = drt.sub('', o[1]) + ' | ' + ndir
+            self.dbgoList.append(o)
+            self.DBGOBJECTS += ' ' + o[0]
 
 
 def simpath(path):
