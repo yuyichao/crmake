@@ -6,6 +6,8 @@ import re
 import json
 import cli
 
+from os.path import normpath as simpath
+
 Version = (0, 9)
 Prefix_Str = '''
 ########################################################################
@@ -323,34 +325,6 @@ class Makefile:
             o[1] = drt.sub('', o[1]) + ' | ' + ndir
             self.dbgoList.append(o)
             self.DBGOBJECTS += ' ' + o[0]
-
-
-def simpath(path):
-    dirlist = path.split('/')
-    newlist = []
-    for i in range(0, len(dirlist)):
-        if len(newlist) == 0:
-            newlist.append(dirlist[i])
-            continue
-        if dirlist[i] == '.' or dirlist[i] == '':
-            continue
-        if dirlist[i] == '..' and len(newlist) != 0 and \
-                newlist[-1] != '.' and newlist[-1] != '..':
-            if newlist[-1] == '':
-                continue
-            newlist.pop()
-            if len(newlist) == 0:
-                newlist = ['.']
-            continue
-        newlist.append(dirlist[i])
-    if newlist[0] != '.' and newlist[0] != '':
-        newlist.insert(0, '.')
-    res = ''
-    for i in range(0, len(newlist)):
-        if i != 0 or (newlist[0] == '' and i + 1 == len(newlist)):
-            res += '/'
-        res += newlist[i]
-    return res
 
 def getrel(path, sub):
     path = simpath(path)

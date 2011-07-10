@@ -3,6 +3,8 @@
 import os
 import re
 
+from os.path import basename, dirname
+
 def asystem(arg, decode=True):
     fdout = os.pipe()
     fderr = os.pipe()
@@ -57,6 +59,11 @@ def asystemcli(cmd, decode=True):
     os.close(fderr[0])
     return [ret, out, err]
 
+def simpath(path):
+    path = os.path.normpath(path)
+    if path.startswith('//'):
+        path = path[1:]
+    return path
 
 def readall(fd, decode=True):
     res = bytes()
@@ -88,18 +95,9 @@ def mimeof(path):
         return ''
     return ret[1]
 
-def simpath(path):
-    while True:
-        tmp = simpath1(path)
-        if tmp == path:
-            return tmp
-        path = tmp
+def getrel(path1, path2):
+    path1 = normpath(path1).split('/')
+    path2 = normpath(path2).split('/')
 
-def simpath1(path):
-    path = re.sub('(/(?!(\\.|)\\./)[^/]/\\.\\.(/|$))', '/', path)
-    path = re.sub('(^(?!(\\.|)\\./)[^/]/\\.\\.(/|$))', './', path)
-    path = re.sub('^\\./(?!/|$)', '', path)
-    path = re.sub('/\\.(/|$)', '/', path)
-    path = re.sub('^/\\.\\.(/|$)', '/', path)
-    path = re.sub('/+', '/', path)
-    return path
+    
+

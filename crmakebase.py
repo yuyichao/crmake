@@ -4,7 +4,7 @@ import re
 import cli
 import os
 
-from os.path import dirname, basename
+from os.path import dirname, basename, normpath
 
 Version = (0, 9)
 
