@@ -366,18 +366,6 @@ def getrel(path, sub):
         rel = rel[1:len(sub)]
     return rel
 
-def find(path):
-    try:
-        children = os.listdir(path)
-    except OSError:
-        return []
-    res = []
-    for child in children:
-        full = path + '/' + child
-        res.append(full)
-        if os.path.isdir(full) & (not os.path.islink(full)):
-            res += find(full)
-    return res
 
 def rd_config():
     try:
@@ -395,44 +383,8 @@ def rd_config():
         conf.pop('targets')
     return conf
 
-
-def add2set(dic, key, item):
-    if key in dic:
-        dic[key].add(item)
-
-def rd_arg():
-    i = 0
-    ret = {}
-    while (i < len(sys.argv)):
-        if sys.argv[i] == '-I':
-            i += 1;
-            add2set(ret, 'includePath', sys.argv[i])
-        elif sys.argv[i] == '-L':
-            i += 1;
-            add2set(ret, 'libPath', sys.argv[i])
-        elif sys.argv[i] == '-l':
-            i += 1;
-            add2set(ret, 'libName', sys.argv[i])
-        elif '=' in sys.argv[i]:
-            [key, value] = sys.argv[i].split('=', 1)
-            ret[key] = value
-        elif sys.argv[i] == '-o':
-            i += 1
-            ret['makefile'] = sys.argv[i]
-        elif sys.argv[i] == '--notar':
-            ret['tar'] = False
-        elif sys.argv[i] == '--noopen':
-            ret['opendir'] = False
-        elif sys.argv[i] == '--nodebug':
-            ret['debug'] = False
-        elif sys.argv[i] == '--noinstall':
-            ret['install'] = False
-        i += 1
-    return ret
-
-
 def lssrc(path):
-    flist = find(path)
+    flist = cli.find(path)
     for f in flist:
         if re.compile('[^\./]\.c$').findall(f) != []:
             CList.append(f)
@@ -460,10 +412,8 @@ def dist_list():
 
 def main():
     conf_f = rd_config()
-    cli_arg = rd_arg()
     mt = Makefile()
     mt.add_conf(conf_f)
-    mt.add_conf(cli_arg)
     mt.apply_conf()
     mt.check_add()
     lssrc(mt.srcdir)
