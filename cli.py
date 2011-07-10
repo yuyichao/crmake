@@ -95,9 +95,37 @@ def mimeof(path):
         return ''
     return ret[1]
 
-def getrel(path1, path2):
-    path1 = normpath(path1).split('/')
-    path2 = normpath(path2).split('/')
+def delcommon(lst1, lst2):
+    i = 0
+    while i < min(len(lst1), len(lst2)):
+        if lst1[i] != lst2[i]:
+            break
+        i += 1
+    return [lst1[i:], lst2[i:]]
 
-    
+def splitpath(path):
+    if path == '':
+        path = '.'
+    ret = path.split('/')
+    while len(ret) > 1 and ret[0] == '' and ret[1] == '':
+        ret.pop(0)
+    return ret
+
+def getrel(path1, path2):
+    path1 = splitpath(simpath(path1))
+    path2 = splitpath(simpath(path2))
+    if (path1[0] and not path2[0]) or (path2[0] and not path1[0]):
+        return [None, None]
+    [path1, path2] = delcommon(path1, path2)
+    if path2 and (path2[0] in ['..']):
+        rel1 = None
+    else:
+        rel1 = simpath('/'.join(['..'] * (len(path2) - path2.count('.'))
+                                + path1))
+    if path1 and (path1[0] in ['..']):
+        rel2 = None
+    else:
+        rel2 = simpath('/'.join(['..'] * (len(path1) - path1.count('.'))
+                                + path2))
+    return [rel1, rel2]
 

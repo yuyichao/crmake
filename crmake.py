@@ -6,7 +6,7 @@ import re
 import json
 import cli
 
-from os.path import normpath as simpath
+from cli import simpath
 
 Version = (0, 9)
 Prefix_Str = '''
