@@ -76,17 +76,32 @@ def readall(fd, decode=True):
     return res
 
 
-def find(path):
+def find(path, exclude=['/\\.[^./]']):
     try:
         children = os.listdir(path)
     except OSError:
         return []
+    copy = False
+    if type(exclude) != list:
+        exclude = [exclude]
+        copy = True
+    for i, v in enumerate(exclude):
+        if type(v) == str:
+            if not copy:
+                exclude = exclude.copy()
+                copy = True
+            exclude[i] = re.compile(v)
     res = []
     for child in children:
         full = path + '/' + child
-        res.append(full)
+        for ex in exclude:
+            if ex.search(full):
+                full = ''
+                break
+        if full:
+            res.append(full)
         if os.path.isdir(full) & (not os.path.islink(full)):
-            res += find(full)
+            res += find(full, exclude=exclude)
     return res
 
 def mimeof(path):
