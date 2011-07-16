@@ -22,7 +22,7 @@ Prefix_Str = '''
 ''' % VStr
 
 class makebase:
-    MakeVar = {'RM': ['rm', '-v'],
+    MakeVar = {'RM': ['rm', '-fv'],
                'RMDIR': ['rmdir', '-pv'],
                'INSTALL': ['install'],
                'SYMLINK': ['ln', '-sv'],
@@ -42,6 +42,7 @@ class makebase:
                 'PREFIX': '/usr/',
                 'datadir': '/share/'
                 }
+    InVar = {}
     fullname = re.compile('.*')
     bname = re.compile('^$')
     ignore = [re.compile('/\.[^/]')]
@@ -56,6 +57,7 @@ class makebase:
         self.name = 'main'
         self.makevar = self.MakeVar.copy()
         self.crvar = self.CrVar.copy()
+        self.invar = self.InVar.copy()
         self.instldir = self.InstlDir.copy()
 
         '''
@@ -188,6 +190,8 @@ class makebase:
             f.write('%s = %s\n' % (key, lst2str(value)))
         for key, value in self.instldir.items():
             f.write('%s = %s\n' % (key, lst2str(value)))
+        for key, value in self.invar.items():
+            f.write('%s = %s\n' % (key, lst2str(value)))
         f.flush()
 
     def write_tgts(self, f):
@@ -216,7 +220,7 @@ class makebase:
                     % (typ[1], typ[0], tgt))
         f.write('uninstall:\n')
         for tgt, typ in self.instl_target.items():
-            f.write('\t$@(RM) $(DEST)/$(PREFIX)/$(%sdir)/%s > /dev/null || true\n' % (typ[0], tgt))
+            f.write('\t@$(RM) $(DEST)/$(PREFIX)/$(%sdir)/%s 2> /dev/null || true\n' % (typ[0], os.path.basename(tgt)))
         f.flush()
 
     def write_clean(self, f):

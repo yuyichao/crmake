@@ -53,9 +53,10 @@ class c_make(base.makebase):
             self.makevar['CXXFLAGS'] += ['-I' + I]
 
     def nmltgts(self):
-        self.c_target = self.crvar['targets'][0] #TODO guess name
-        self.rtgts[self.c_target] = {'deps': [], 'cmd': ['\t', '$(LD)', '$$(pkg-config --libs $(MODULES) 2> /dev/null)', '$(OPTFLAGS)', '$^', '-o', '$@']}
-        self.targets[0][1] = [self.c_target]
+        self.invar['C_TARGET'] = self.crvar['targets'][0] #TODO guess name
+        self.rtgts['$(BIN_DIR)/$(C_TARGET)'] = {'deps': [], 'cmd': ['\t', '$(LD)', '$$(pkg-config --libs $(MODULES) 2> /dev/null)', '$(OPTFLAGS)', '$^', '-o', '$@']}
+        self.targets[0][1] = ['$(BIN_DIR)/$(C_TARGET)']
+        self.instl_target['$(BIN_DIR)/$(C_TARGET)'] = ['bin', 0o755]
         c2o = re.compile('\\.c$|\\.cpp$')
         drt = re.compile('\\\\\n|\n$', re.S)
         for c in self.clist:
@@ -66,8 +67,8 @@ class c_make(base.makebase):
             ofile = '$(OBJ_DIR)' + '/' + c2o.sub('.o', c)
             self.rtgts[ofile] = {'deps': [drt.sub('', out.split(':', 1)[1])],
                 'cmd': ['\t', '$(CC)', '$$(pkg-config --cflags $(MODULES))',
-                        '$(OPTFLAGS)', '$(CFLAGS)']}
-            self.rtgts[self.c_target]['deps'].append(ofile)
+                        '$(OPTFLAGS)', '$(CFLAGS)', '-c', '$<', '-o', '$@']}
+            self.rtgts['$(BIN_DIR)/$(C_TARGET)']['deps'].append(ofile)
         for cxx in self.cxxlist:
             [ret, out, err] = cli.asystem(['gcc', '-MM', c] + self.makevar['CXXFLAGS'])#TODO
             if err:
@@ -76,13 +77,13 @@ class c_make(base.makebase):
             ofile = '$(OBJ_DIR)' + '/' + c2o.sub('.o', c)
             self.rtgts[ofile] = {'deps': [drt.sub('', out.split(':', 1)[1])],
                 'cmd': ['\t', '$(CXX)', '$$(pkg-config --cflags $(MODULES))',
-                        '$(OPTFLAGS)', '$(CXXFLAGS)']}
-            self.rtgts[self.c_target]['deps'].append(ofile)
+                        '$(OPTFLAGS)', '$(CXXFLAGS)', '-c', '$<', '-o', '$@']}
+            self.rtgts['$(BIN_DIR)/$(C_TARGET)']['deps'].append(ofile)
 
     def dbgtgts(self):
-        self.c_dbg_target = self.c_target + '_debug'
-        self.rtgts[self.c_dbg_target] = {'deps': [], 'cmd': ['\t', '$(LD)', '$$(pkg-config --libs $(MODULES) 2> /dev/null)', '$(DBGFLAGS)', '$^', '-o', '$@']}
-        self.targets.append(['debug', [self.c_dbg_target]])
+        self.c_dbg_target = '$(C_TARGET)_debug'
+        self.rtgts['$(BIN_DIR)/' + self.c_dbg_target] = {'deps': [], 'cmd': ['\t', '$(LD)', '$$(pkg-config --libs $(MODULES) 2> /dev/null)', '$(DBGFLAGS)', '$^', '-o', '$@']}
+        self.targets.append(['debug', ['$(BIN_DIR)/' + self.c_dbg_target]])
         c2o = re.compile('\\.c$|\\.cpp$')
         drt = re.compile('\\\\\n|\n$', re.S)
         for c in self.clist:
@@ -93,8 +94,8 @@ class c_make(base.makebase):
             ofile = '$(OBJ_DIR)' + '/' + c2o.sub('_debug.o', c)
             self.rtgts[ofile] = {'deps': [drt.sub('', out.split(':', 1)[1])],
                 'cmd': ['\t', '$(CC)', '$$(pkg-config --cflags $(MODULES))',
-                        '$(DBGFLAGS)', '$(CFLAGS)']}
-            self.rtgts[self.c_dbg_target]['deps'].append(ofile)
+                        '$(DBGFLAGS)', '$(CFLAGS)', '-c', '$<', '-o', '$@']}
+            self.rtgts['$(BIN_DIR)/' + self.c_dbg_target]['deps'].append(ofile)
         for cxx in self.cxxlist:
             [ret, out, err] = cli.asystem(['gcc', '-MM', c] + self.makevar['CXXFLAGS'])#TODO
             if err:
@@ -103,11 +104,11 @@ class c_make(base.makebase):
             ofile = '$(OBJ_DIR)' + '/' + c2o.sub('_debug.o', c)
             self.rtgts[ofile] = {'deps': [drt.sub('', out.split(':', 1)[1])],
                 'cmd': ['\t', '$(CXX)', '$$(pkg-config --cflags $(MODULES))',
-                        '$(DBGFLAGS)', '$(CXXFLAGS)']}
-            self.rtgts[self.c_dbg_target]['deps'].append(ofile)
+                        '$(DBGFLAGS)', '$(CXXFLAGS)', '-c', '$<', '-o', '$@']}
+            self.rtgts['$(BIN_DIR)/' + self.c_dbg_target]['deps'].append(ofile)
 
     def run_tgt(self):
-        self.targets.append(['run', ['$(tgtdir)/$(target)_debug'], ['\t', '$<']])
-        self.targets.append(['rdbg', ['$(tgtdir)/$(target)_debug'], ['\t', 'gdb', '$<']])
+        self.targets.append(['run', ['$(BIN_DIR)/$(C_TARGET)_debug'], ['\t', '$<']])
+        self.targets.append(['rdbg', ['$(BIN_DIR)/$(C_TARGET)_debug'], ['\t', 'gdb', '$<']])
 
 
