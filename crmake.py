@@ -114,6 +114,8 @@ class Makefile:
         self.setdefault('BINDIR', '/bin')
         self.setdefault('LIBDIR', '/lib')
         self.makefile = simpath(self.makefile)
+        if '/' not in self.makefile:
+            self.makefile = './' + self.makefile
 
     def setdefault(self, attr, default):
         if hasattr(self, attr) \
