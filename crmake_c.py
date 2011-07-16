@@ -13,6 +13,8 @@ class c_make(base.makebase):
                            'CFLAGS': ['-fPIC', '-Wall'],
                            'CXXFLAGS': ['-fPIC', '-Wall'],
                            'SHAREDFLAGS': ['-shared'],
+                           'OPTFLAGS': ['-O2'],
+                           'DBGFLAGS': ['-g'],
                            'MODULES': [],
                            'BIN_DIR': 'bin',
                            'OBJ_DIR': 'obj'

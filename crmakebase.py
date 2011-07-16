@@ -120,7 +120,7 @@ class makebase:
                     config.pop(key)
         for key in config:
             if key[-3:] == 'dir':
-                self.instldir[key] = config(key)
+                self.instldir[key] = config[key]
 
     def classify_files(self): pass
 
