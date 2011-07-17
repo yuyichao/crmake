@@ -40,7 +40,8 @@ class makebase:
              }
     InstlDir = {'DEST': '/',
                 'PREFIX': '/usr/',
-                'datadir': '/share/'
+                'datadir': '$(PREFIX)/share/',
+                'confdir': '/etc/',
                 }
     InVar = {}
     fullname = re.compile('.*')
@@ -150,7 +151,7 @@ class makebase:
             elif name == 'PREFIX':
                 self.ndirs.append('$(DEST)/$(PREFIX)')
             else:
-                self.ndirs.append('$(DEST)/$(PREFIX)/$(%s)' % name)
+                self.ndirs.append('$(DEST)/$(%s)' % name)
         for name in self.rtgts:
             self.ndirs.append(dirname(name))
         self.ndirs = delrep(self.ndirs)
@@ -213,14 +214,14 @@ class makebase:
         for name in self.instldir:
             if name == 'DEST' or name == 'PREFIX':
                 continue
-            f.write(' $(DEST)/$(PREFIX)/$(%s)' % name)
+            f.write(' $(DEST)/$(%s)' % name)
         f.write('\n')
         for tgt, typ in self.instl_target.items():
-            f.write('\t$(INSTALL) -m %o -t $(DEST)/$(PREFIX)/$(%sdir) %s\n'
+            f.write('\t$(INSTALL) -m %o -t $(DEST)/$(%sdir) %s\n'
                     % (typ[1], typ[0], tgt))
         f.write('uninstall:\n')
         for tgt, typ in self.instl_target.items():
-            f.write('\t@$(RM) $(DEST)/$(PREFIX)/$(%sdir)/%s 2> /dev/null || true\n' % (typ[0], os.path.basename(tgt)))
+            f.write('\t@$(RM) $(DEST)/$(%sdir)/%s 2> /dev/null || true\n' % (typ[0], os.path.basename(tgt)))
         f.flush()
 
     def write_clean(self, f):

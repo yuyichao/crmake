@@ -22,7 +22,7 @@ class c_make(base.makebase):
     CrVar = base.dict_merge(base.makebase.CrVar, {'type': ['c', 'c', 'pro'],
                                                   'includepath': set()
                                                   })
-    InstlDir = base.dict_merge(base.makebase.InstlDir, {'bindir': '/bin/'})
+    InstlDir = base.dict_merge(base.makebase.InstlDir, {'bindir': '$(PREFIX)/bin/'})
     fullname = re.compile('\\.(c|cpp|h)$')
     def __init__(self):
         base.makebase.__init__(self)
